@@ -1,0 +1,40 @@
+---
+- hosts: all
+  become: true
+  tasks:
+
+    - name: Update package cache (Debian/Ubuntu)
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Update package cache (RedHat/CentOS/Fedora)
+      dnf:
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Check for updates (Debian/Ubuntu)
+      ansible.builtin.shell: |
+        apt-get -s -o Debug::NoLocking=true upgrade | grep -c "^Inst"
+      register: updates_available_debian
+      changed_when: false  # This command only checks, it doesn't change anything
+      when: ansible_os_family == "Debian"
+      failed_when: updates_available_debian.rc != 0 and updates_available_debian.rc !=100 #ignore exit code 100 which is returned when there are updates available
+
+    - name: Check for updates (RedHat/CentOS/Fedora)
+      ansible.builtin.shell: |
+        dnf check-update --refresh -q | wc -l
+      register: updates_available_redhat
+      changed_when: false  # This command only checks, it doesn't change anything
+      when: ansible_os_family == "RedHat"
+      failed_when: updates_available_redhat.rc != 0 and updates_available_redhat.rc !=100 #ignore exit code 100 which is returned when there are updates available
+      
+    - name: Report available updates (Debian/Ubuntu)
+      debug:
+        msg: "{{ updates_available_debian.stdout }} updates available."
+      when: ansible_os_family == "Debian"
+
+    - name: Report available updates (RedHat/CentOS/Fedora)
+      debug:
+        msg: "{{ updates_available_redhat.stdout }} updates available."
+      when: ansible_os_family == "RedHat"
